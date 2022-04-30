@@ -48,11 +48,12 @@ bool Board::containsMove(std::vector<Piece *> &pieces, std::string move) const {
 
 std::string Board::getLetterOfPiece(int row, int col) const {
     Piece * foundPiece = getPieceAt(row, col);
-    if (!foundPiece) return "  ";
+    if (!foundPiece) return "   ";
     std::string s;
     if (std::count(whitePieces.begin(), whitePieces.end(), foundPiece)) s.push_back('W');
     else s.push_back('B');
     s.push_back(foundPiece->type.at(0));
+    s.push_back(foundPiece->type.at(1));
     return s;
 }
 
@@ -68,6 +69,8 @@ void Board::findAvailableMoves(Piece * piece) {
     piece->availableMoves.clear();
     piece->protectiveMoves.clear();
     int row = piece->row, col = piece->col;
+    if (row < 0 || row >= BOARD_HEIGHT || col < 0 || col >= BOARD_WIDTH) return;
+    //if (containsPiece(*enemyPtr, getPieceAt(row, col))) return;
     if (piece->type == "Pawn") {
         if (row - direction >= 0 && row - direction < BOARD_HEIGHT) {
             if (getPieceAt(row - direction, col) == nullptr) piece->availableMoves.push_back(parseCoordsToString(row - direction, col));
@@ -179,19 +182,19 @@ bool Board::validCoord(std::string input) {
 }
 
 std::ostream &operator<<(std::ostream &os, const Board &board) {
-    std::cout << "   ---------------------------------------------------------" << std::endl;
+    std::cout << "   -----------------------------------------------------------------" << std::endl; 
     for (int row = 0; row < board.BOARD_HEIGHT; row++) {
-        std::cout << "   |      |      |      |      |      |      |      |      |" << std::endl;
+        std::cout << "   |       |       |       |       |       |       |       |       |" << std::endl;
         std::cout << row + 1 << "  |";
         for (int col = 0; col < board.BOARD_WIDTH; col++) {
             std::cout << "  " << board.getLetterOfPiece(row, col) << "  |";
         }
         std::cout << std::endl;
-        std::cout << "   |      |      |      |      |      |      |      |      |" << std::endl;
-        std::cout << "   ---------------------------------------------------------" << std::endl;
+        std::cout << "   |       |       |       |       |       |       |       |       |" << std::endl;
+        std::cout << "   -----------------------------------------------------------------" << std::endl;
         
     }
-    std::cout << "   ----A------B------C------D------E------F------G------H---" << std::endl;
+    std::cout << "   ----A-------B-------C-------D-------E-------F-------G-------H----" << std::endl;
     return os;
 }
 

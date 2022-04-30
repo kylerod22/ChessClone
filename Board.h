@@ -4,9 +4,10 @@
 #include <utility>
 #include <algorithm>
 class Board {
-
+    friend class Game;
     private:
         const static int BOARD_HEIGHT = 8, BOARD_WIDTH = 8;
+        
 
         struct Piece {
             std::vector<std::string> availableMoves;
@@ -20,33 +21,10 @@ class Board {
                 row = rowCol.first;
                 col = rowCol.second;
             }
+            Piece(int inRow, int inCol, std::string inType): Piece(parseCoordsToString(inRow, inCol), inType) {}
+                
+    
         };
-
-        struct Pawn : Piece {
-            Pawn(std::string input): Piece(input, "Pawn") {}
-        };
-
-        struct Rook : Piece {
-            Rook(std::string input): Piece(input, "Rook") {}
-        };
-
-        struct Bishop : Piece {
-            Bishop(std::string input): Piece(input, "Bishop") {}
-        };
-
-        struct Knight : Piece {
-            Knight(std::string input): Piece(input, "Knight") {}
-        };
-
-        struct Queen : Piece {
-            Queen(std::string input): Piece(input, "Queen") {}
-        };
-
-        struct King : Piece {
-            King(std::string input): Piece(input, "King") {}
-        };
-
-
         std::string getLetterOfPiece(int row, int col) const;
         void findAvailableMoves(Piece * piece);
         void update();
@@ -83,6 +61,62 @@ class Board {
             }
             return false;
         }
+
+        bool checkCheckMate(std::string currPlayer) {
+            std::vector<Piece *> *currPlayerPiecesPtr = &whitePieces;
+            if (currPlayer == "Black") currPlayerPiecesPtr = &blackPieces;
+            return checkCheckMate(*currPlayerPiecesPtr);
+        }
+
+        bool checkNoPossibleMoves(std::vector<Piece *> &currPlayer) {
+            std::vector<Piece *> *enemyPtr = &blackPieces;
+            if (currPlayer == blackPieces) enemyPtr = &whitePieces;
+            bool foundPossibleMove = false;
+            for (auto & piece : currPlayer) {
+                for (std::string move : piece->availableMoves) {
+                    int startRow = piece->row, startCol = piece->col;
+                    int enemyPieceRow = -1, enemyPieceCol = -1;
+                    std::pair<int, int> moveCoords = parseStringToCoords(move);
+                    Piece * enemyPieceAtPos = getPieceAt(move);
+                    piece->row = moveCoords.first;
+                    piece->col = moveCoords.second;
+
+                    if (enemyPieceAtPos != nullptr) {
+                        enemyPieceRow = enemyPieceAtPos->row;
+                        enemyPieceCol = enemyPieceAtPos->col;
+                        enemyPieceAtPos->row = -1;
+                        enemyPieceAtPos->col = -1;
+                    }
+                    
+
+                    update();
+                    if (!checkCheckMate(currPlayer)) foundPossibleMove = true;
+                    piece->row = startRow;
+                    piece->col = startCol;
+
+                    if (enemyPieceAtPos != nullptr) {
+                        enemyPieceAtPos->row = enemyPieceRow;
+                        enemyPieceAtPos->col = enemyPieceCol;
+                    }
+                    update();
+                }
+            }
+            return !foundPossibleMove;
+        }
+
+        bool checkStalemate(std::string currPlayer) {
+            std::vector<Piece *> *currPlayerPiecesPtr = &whitePieces;
+            if (currPlayer == "Black") currPlayerPiecesPtr = &blackPieces;
+            if (!checkCheckMate(*currPlayerPiecesPtr) && checkNoPossibleMoves(*currPlayerPiecesPtr)) return true;
+            return false;
+        }
+
+        bool checkLose(std::string currPlayer) {
+            std::vector<Piece *> *currPlayerPiecesPtr = &whitePieces;
+            if (currPlayer == "Black") currPlayerPiecesPtr = &blackPieces;
+            if (checkCheckMate(*currPlayerPiecesPtr) && checkNoPossibleMoves(*currPlayerPiecesPtr)) return true;
+            return false;
+        }
         
 
     public:
@@ -95,12 +129,16 @@ class Board {
                 }
                 std::cout << std::endl;
             }
-            move(whitePieces, "E6", "F5");
-        }
+            //move(whitePieces, "E6", "F5");
+        } 
 
         bool move(std::vector<Piece *> &currPlayer, std::string start, std::string end) {
             std::vector<Piece *> *enemyPtr = &blackPieces;
-            if (currPlayer == blackPieces) enemyPtr = &whitePieces;
+            int endOppositeRow = 0;
+            if (currPlayer == blackPieces) {
+                enemyPtr = &whitePieces;
+                endOppositeRow = 7;
+            }
             
             if (!validCoord(start) || !validCoord(end)) {
                 std::cout << "Invalid coords." << std::endl;
@@ -116,42 +154,53 @@ class Board {
                 return false;
             }//Not a valid move
 
+            Piece *attackedPiece = getPieceAt(end);
             int startRow = pieceToMove->row, startCol = pieceToMove->col;
+            int attackedPieceRow = -1, attackedPieceCol = -1;
             std::pair<int, int> coords = parseStringToCoords(end);
 
             pieceToMove->row = coords.first;
             pieceToMove->col = coords.second;
+            if (attackedPiece != nullptr) {
+                attackedPieceRow = attackedPiece->row;
+                attackedPieceCol = attackedPiece->col;
+                attackedPiece->row = -1;
+                attackedPiece->col = -1;
+            }
             update();
             if (checkCheckMate(currPlayer)) {
                 pieceToMove->row = startRow;
                 pieceToMove->col = startCol;
+                if (attackedPiece != nullptr) {
+                    attackedPiece->row = attackedPieceRow;
+                    attackedPiece->col = attackedPieceCol;
+                }
                 std::cout << "Invalid move." << std::endl;
+                update();
                 return false; //Moving will still put you in checkmate
             }
-            pieceToMove->row = startRow;
-            pieceToMove->col = startCol;
 
-            Piece *attackedPiece = getPieceAt(end);
             if (attackedPiece != nullptr) {
                 removePiece(attackedPiece);
             }
-            pieceToMove->row = coords.first;
-            pieceToMove->col = coords.second;
+            pieceToMove->hasMoved = true;
+
             update();
             return true;
         }
         
         Board() {
-            /*for (int col = 0; col < BOARD_WIDTH; col++) {
-                whitePieces.push_back(new Pawn(parseCoordsToString(6, col)));
-                blackPieces.push_back(new Pawn(parseCoordsToString(1, col)));
-            } */
+            std::vector<std::string> backOrder = {"Rook", "Knight", "Bishop", "Queen", "King", "Bishop", "Knight", "Rook"};
+            for (int col = 0; col < BOARD_WIDTH; col++) {
+                whitePieces.push_back(new Piece(6, col, "Pawn"));
+                blackPieces.push_back(new Piece(1, col, "Pawn"));
+            } 
 
-            whitePieces.push_back(new King("D7"));
-            blackPieces.push_back(new King("H1"));
-            whitePieces.push_back(new Pawn("E6"));
-            blackPieces.push_back(new Queen("E5"));
-            blackPieces.push_back(new Rook("F5"));
+            for (int col = 0; col < backOrder.size(); col++) {
+                std::string pieceType = backOrder.at(col);
+                whitePieces.push_back(new Piece(7, col, pieceType));
+                blackPieces.push_back(new Piece(0, col, pieceType));
+            }
 
             update();
         }
